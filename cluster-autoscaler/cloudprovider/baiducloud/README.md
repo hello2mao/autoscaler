@@ -1,0 +1,1 @@
+# Cluster Autoscaler on Baidu Cloud Container Engine.
