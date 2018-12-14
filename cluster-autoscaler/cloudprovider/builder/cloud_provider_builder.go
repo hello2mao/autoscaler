@@ -32,6 +32,7 @@ import (
 	kubemarkcontroller "k8s.io/kubernetes/pkg/kubemark"
 
 	"github.com/golang/glog"
+	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/baiducloud"
 )
 
 // AvailableCloudProviders supported by the cloud provider builder.
@@ -40,6 +41,7 @@ var AvailableCloudProviders = []string{
 	azure.ProviderName,
 	gce.ProviderNameGCE,
 	gce.ProviderNameGKE,
+	baiducloud.ProviderName,
 	kubemark.ProviderName,
 }
 
@@ -85,6 +87,8 @@ func (b CloudProviderBuilder) Build(discoveryOpts cloudprovider.NodeGroupDiscove
 		return b.buildAWS(discoveryOpts, resourceLimiter)
 	case azure.ProviderName:
 		return b.buildAzure(discoveryOpts, resourceLimiter)
+	case baiducloud.ProviderName:
+		return b.buildBaiduCloud(discoveryOpts, resourceLimiter)
 	case kubemark.ProviderName:
 		return b.buildKubemark(discoveryOpts, resourceLimiter)
 	case "":
@@ -164,6 +168,29 @@ func (b CloudProviderBuilder) buildAzure(do cloudprovider.NodeGroupDiscoveryOpti
 	provider, err := azure.BuildAzureCloudProvider(manager, rl)
 	if err != nil {
 		glog.Fatalf("Failed to create Azure cloud provider: %v", err)
+	}
+	return provider
+}
+
+func (b CloudProviderBuilder) buildBaiduCloud(do cloudprovider.NodeGroupDiscoveryOptions, rl *cloudprovider.ResourceLimiter) cloudprovider.CloudProvider {
+	var config io.ReadCloser
+	if b.cloudConfig != "" {
+		var err error
+		config, err = os.Open(b.cloudConfig)
+		if err != nil {
+			glog.Fatalf("Couldn't open cloud provider configuration %s: %#v", b.cloudConfig, err)
+		}
+		defer config.Close()
+	}
+
+	manager, err := aws.CreateAwsManager(config, do)
+	if err != nil {
+		glog.Fatalf("Failed to create AWS Manager: %v", err)
+	}
+
+	provider, err := aws.BuildAwsCloudProvider(manager, rl)
+	if err != nil {
+		glog.Fatalf("Failed to create AWS cloud provider: %v", err)
 	}
 	return provider
 }
